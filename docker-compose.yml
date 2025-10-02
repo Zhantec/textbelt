@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  textbelt:
+    build: .
+    # Or use the pre-built image (after it's published):
+    # image: ghcr.io/YOUR_GITHUB_USERNAME/textbelt:latest
+    ports:
+      - "9090:9090"
+    environment:
+      # Gmail example (get app password from https://myaccount.google.com/apppasswords)
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USER=your-email@gmail.com
+      - SMTP_PASS=your-app-password  # 16-character app password
+      - MAIL_FROM=your-email@gmail.com
+
+      # SendGrid example (uncomment to use)
+      # - SMTP_HOST=smtp.sendgrid.net
+      # - SMTP_PORT=587
+      # - SMTP_USER=apikey
+      # - SMTP_PASS=your-sendgrid-api-key
+      # - MAIL_FROM=noreply@yourdomain.com
+
+      # Other options
+      - PORT=9090
+      - DEBUG=true  # Set to true to see debug logs
+
+      # Use local sendmail instead of SMTP (uncomment if you have sendmail)
+      # - USE_SENDMAIL=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:9090/', (r) => {r.statusCode === 200 ? process.exit(0) : process.exit(1)}).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  # Optional: Redis (uncomment if you want to add Redis for future features like rate limiting)
+  # Note: The current code doesn't actually use Redis, but the README mentions it
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis-data:/data
+  #   restart: unless-stopped
+  #   command: redis-server --appendonly yes
+
+# volumes:
+#   redis-data:
