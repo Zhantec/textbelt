@@ -1,0 +1,56 @@
+name: Tag Fork Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name (e.g., v1.0.0-fork.1)'
+        required: true
+        type: string
+      tag_message:
+        description: 'Tag message'
+        required: false
+        default: 'Fork release with upstream sync'
+        type: string
+
+jobs:
+  tag-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Check upstream status
+        run: |
+          git remote add upstream https://github.com/typpo/textbelt.git || true
+          git fetch upstream
+
+          echo "### Fork Status" >> $GITHUB_STEP_SUMMARY
+          echo "**Current fork commit:** $(git rev-parse --short HEAD)" >> $GITHUB_STEP_SUMMARY
+          echo "**Latest upstream commit:** $(git rev-parse --short upstream/master)" >> $GITHUB_STEP_SUMMARY
+
+          BEHIND=$(git rev-list --count HEAD..upstream/master)
+          AHEAD=$(git rev-list --count upstream/master..HEAD)
+
+          echo "**Fork is ${AHEAD} commits ahead, ${BEHIND} commits behind upstream**" >> $GITHUB_STEP_SUMMARY
+
+      - name: Create and push tag
+        run: |
+          # Create annotated tag with upstream reference
+          UPSTREAM_SHA=$(git rev-parse --short upstream/master)
+          TAG_MESSAGE="${{ github.event.inputs.tag_message }}
+
+          Based on upstream: typpo/textbelt@${UPSTREAM_SHA}
+          Fork commit: $(git rev-parse --short HEAD)"
+
+          git tag -a "${{ github.event.inputs.tag_name }}" -m "$TAG_MESSAGE"
+          git push origin "${{ github.event.inputs.tag_name }}"
+
+          echo "✅ Tag created: ${{ github.event.inputs.tag_name }}" >> $GITHUB_STEP_SUMMARY
