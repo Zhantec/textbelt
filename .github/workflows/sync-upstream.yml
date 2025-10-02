@@ -1,0 +1,91 @@
+name: Sync with Upstream
+
+on:
+  schedule:
+    # Run weekly on Mondays at 2 AM UTC
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+    inputs:
+      create_pr:
+        description: 'Create a PR instead of direct merge'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/typpo/textbelt.git || true
+          git fetch upstream
+
+      - name: Check for upstream changes
+        id: check
+        run: |
+          CHANGES=$(git log HEAD..upstream/master --oneline)
+          if [ -z "$CHANGES" ]; then
+            echo "No upstream changes detected"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "Upstream changes detected:"
+            echo "$CHANGES"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "changes<<EOF" >> $GITHUB_OUTPUT
+            echo "$CHANGES" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create sync branch and PR
+        if: steps.check.outputs.has_changes == 'true' && (github.event_name == 'schedule' || github.event.inputs.create_pr == 'true')
+        run: |
+          BRANCH_NAME="sync/upstream-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b $BRANCH_NAME
+          git merge upstream/master --no-edit
+          git push origin $BRANCH_NAME
+
+          # Create PR using GitHub CLI
+          gh pr create \
+            --title "🔄 Sync with upstream textbelt" \
+            --body "## Upstream Changes
+
+          This PR syncs our fork with the upstream repository.
+
+          ### Changes from upstream:
+          \`\`\`
+          ${{ steps.check.outputs.changes }}
+          \`\`\`
+
+          ### Next Steps:
+          1. Review the changes
+          2. Merge this PR to update the fork
+          3. A new Docker image will be automatically built and tagged
+
+          ---
+          *This PR was automatically created by the sync-upstream workflow*" \
+            --base master \
+            --head $BRANCH_NAME
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Direct merge to master
+        if: steps.check.outputs.has_changes == 'true' && github.event_name == 'workflow_dispatch' && github.event.inputs.create_pr == 'false'
+        run: |
+          git checkout master
+          git merge upstream/master --no-edit
+          git push origin master

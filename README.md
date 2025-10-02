@@ -38,6 +38,46 @@ Sample failure:
 {"success":false,"message":"Exceeded quota for this phone number."}
 ```
 
+### Docker Setup
+
+The easiest way to run TextBelt is using Docker:
+
+#### Quick Start with Docker Compose
+
+1. Clone the repository
+2. Copy and edit the `docker-compose.yml` file with your SMTP credentials
+3. Run: `docker-compose up`
+
+#### Using Pre-built Docker Image
+
+```bash
+docker run -d \
+  -p 9090:9090 \
+  -e SMTP_HOST=smtp.gmail.com \
+  -e SMTP_PORT=587 \
+  -e SMTP_USER=your-email@gmail.com \
+  -e SMTP_PASS=your-app-password \
+  -e MAIL_FROM=your-email@gmail.com \
+  ghcr.io/YOUR_GITHUB_USERNAME/textbelt:latest
+```
+
+#### Environment Variables
+
+- `SMTP_HOST`: SMTP server hostname (e.g., smtp.gmail.com)
+- `SMTP_PORT`: SMTP port (usually 587 for TLS)
+- `SMTP_USER`: SMTP username
+- `SMTP_PASS`: SMTP password (use app passwords for Gmail)
+- `MAIL_FROM`: From email address
+- `PORT`: Server port (default: 9090)
+- `DEBUG`: Enable debug logs (true/false)
+- `USE_SENDMAIL`: Use local sendmail instead of SMTP (true/false)
+
+#### Gmail Setup
+
+1. Enable 2-Factor Authentication on your Google account
+2. Generate an app password at https://myaccount.google.com/apppasswords
+3. Use the 16-character app password as `SMTP_PASS`
+
 ### Usage as a module
 
 Though this repository contains an express server so you may run your own
